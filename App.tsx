@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, FunctionCall, GroundingChunk } from "@google/genai";
-import { ChatMessage, Agent, Team, TeamMember } from './types';
+import { ChatMessage, Agent, Team, TeamMember, ChartData } from './types';
 import { toolRegistry } from './tools';
 
 // Make TypeScript aware of the 'marked' and 'DOMPurify' libraries on the window object
@@ -12,6 +12,7 @@ declare global {
     DOMPurify: {
       sanitize: (dirty: string) => string;
     }
+    Chart: any;
   }
 }
 
@@ -247,6 +248,8 @@ const TeamModal: React.FC<TeamModalProps> = ({ isOpen, onClose, onSave, teamToEd
   });
   const [selectedAgent, setSelectedAgent] = useState<string>('');
   const [isImprovingObjective, setIsImprovingObjective] = useState(false);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -309,14 +312,27 @@ Objetivo a mejorar:
     setFormData(prev => ({ ...prev, members: prev.members.filter((_, i) => i !== index) }));
   };
 
-  const handleMoveMember = (index: number, direction: 'up' | 'down') => {
-    const newMembers = [...formData.members];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex >= 0 && targetIndex < newMembers.length) {
-      [newMembers[index], newMembers[targetIndex]] = [newMembers[targetIndex], newMembers[index]];
-      setFormData(prev => ({ ...prev, members: newMembers }));
-    }
+  const onDragStart = (index: number) => {
+    setDraggingIndex(index);
   };
+  const onDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggingIndex === null || draggingIndex === index) return;
+    setDropIndex(index);
+  };
+  const onDrop = () => {
+    if (draggingIndex === null || dropIndex === null) return;
+    const newMembers = [...formData.members];
+    const draggedItem = newMembers.splice(draggingIndex, 1)[0];
+    newMembers.splice(dropIndex, 0, draggedItem);
+    setFormData(prev => ({ ...prev, members: newMembers }));
+    setDraggingIndex(null);
+    setDropIndex(null);
+  };
+  const onDragEnd = () => {
+    setDraggingIndex(null);
+    setDropIndex(null);
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -355,23 +371,33 @@ Objetivo a mejorar:
             </div>
             <textarea name="objective" value={formData.objective} onChange={handleChange} className="modal-input" required rows={3}></textarea>
           </div>
-          <div>
-            <label className="block mb-1">Miembros (Orden de ejecución)</label>
+          <div onDragOver={(e) => e.preventDefault()} onDragEnd={onDragEnd} onDrop={onDrop}>
+            <label className="block mb-1">Miembros (Arrastra para reordenar)</label>
             <div className="p-2 border border-[--border-color] bg-[--bg-secondary] space-y-2">
               {formData.members.map((member, index) => {
                 const agent = agents.find(a => a.id === member.agentId);
                 return (
-                  <div key={`${member.agentId}-${index}`} className="flex items-center justify-between p-1 bg-[--border-color]">
-                    <span>{index + 1}. {agent?.name || 'Agente no encontrado'}</span>
+                    <React.Fragment key={`${member.agentId}-${index}`}>
+                    {dropIndex === index && <div className="drop-indicator"></div>}
+                    <div
+                        draggable
+                        onDragStart={() => onDragStart(index)}
+                        onDragOver={(e) => onDragOver(e, index)}
+                        className={`flex items-center justify-between p-1 bg-[--border-color] draggable-item ${draggingIndex === index ? 'dragging' : ''}`}
+                    >
                     <div className="flex items-center gap-2">
-                       <button type="button" onClick={() => handleMoveMember(index, 'up')} disabled={index === 0} className="disabled:opacity-25">↑</button>
-                       <button type="button" onClick={() => handleMoveMember(index, 'down')} disabled={index === formData.members.length - 1} className="disabled:opacity-25">↓</button>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>
+                        <span>{index + 1}. {agent?.name || 'Agente no encontrado'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
                        <button type="button" onClick={() => handleRemoveMember(index)} className="text-red-500">✕</button>
                     </div>
                   </div>
+                  </React.Fragment>
                 )
               })}
               {formData.members.length === 0 && <p className="text-sm text-[--text-placeholder]">Añade agentes para formar el equipo.</p>}
+               {dropIndex === formData.members.length && <div className="drop-indicator"></div>}
             </div>
             <div className="flex gap-2 mt-2">
               <select value={selectedAgent} onChange={e => setSelectedAgent(e.target.value)} className="modal-select flex-grow">
@@ -520,6 +546,88 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <button onClick={handleSave} className="modal-button">Guardar y Cerrar</button>
         </div>
       </div>
+    </div>
+  );
+};
+
+// --- CHART COMPONENT ---
+interface ChartComponentProps {
+  chartData: ChartData;
+  theme: Theme;
+}
+const ChartComponent: React.FC<ChartComponentProps> = ({ chartData, theme }) => {
+  const chartRef = useRef<HTMLCanvasElement>(null);
+  const chartInstance = useRef<any>(null);
+
+  useEffect(() => {
+    if (chartRef.current && chartData) {
+      if (chartInstance.current) {
+        chartInstance.current.destroy();
+      }
+
+      const textColor = theme === 'dark' ? 'rgba(248, 248, 242, 0.8)' : 'rgba(68, 71, 90, 0.8)';
+      const gridColor = theme === 'dark' ? 'rgba(51, 51, 51, 0.5)' : 'rgba(209, 213, 219, 0.5)';
+
+      const formattedDatasets = chartData.datasets.map((dataset, index) => {
+        const colors = theme === 'dark' ? DARK_THEME_COLORS : LIGHT_THEME_COLORS;
+        const color = colors[index % colors.length];
+        return {
+          ...dataset,
+          backgroundColor: chartData.type === 'pie' ? colors : (chartData.type === 'bar' ? color : 'transparent'),
+          borderColor: color,
+          borderWidth: 2,
+          pointBackgroundColor: color,
+          pointRadius: 2,
+        };
+      });
+
+      const ctx = chartRef.current.getContext('2d');
+      if (ctx) {
+        chartInstance.current = new window.Chart(ctx, {
+          type: chartData.type,
+          data: {
+            labels: chartData.labels,
+            datasets: formattedDatasets,
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: { color: textColor }
+              },
+              title: {
+                display: true,
+                text: chartData.title,
+                color: textColor,
+                font: { size: 16 }
+              },
+            },
+            scales: chartData.type !== 'pie' ? {
+              x: {
+                ticks: { color: textColor },
+                grid: { color: gridColor }
+              },
+              y: {
+                ticks: { color: textColor },
+                grid: { color: gridColor }
+              }
+            } : {},
+          },
+        });
+      }
+    }
+    return () => {
+      if (chartInstance.current) {
+        chartInstance.current.destroy();
+      }
+    };
+  }, [chartData, theme]);
+
+  return (
+    <div className="chart-container">
+      <canvas ref={chartRef}></canvas>
     </div>
   );
 };
@@ -693,7 +801,7 @@ const App: React.FC = () => {
           } else if (apiProvider === 'mcp') {
               await handleMcpStream(userMessage.text, newHistory.slice(0, -1), activeAgent.instructions, (t, f) => updateHistory(t, f));
           } else {
-              await handleGoogleGeminiStream(newHistory, activeAgent, (t, f, id) => updateHistory(t, f, id));
+              await handleGoogleGeminiStream(newHistory, activeAgent, (t, f, id, isE) => updateHistory(t, f, id, 'model', isE));
           }
       }
     } catch (e: any) {
@@ -770,7 +878,7 @@ Basado en toda esta información, ejecuta tu tarea y proporciona solo el resulta
   const handleGoogleGeminiStream = async (
     history: ChatMessage[],
     agent: Agent,
-    updateFn: (t: string, f: boolean, id?: string) => void,
+    updateFn: (text: string, isFirstChunk: boolean, messageId?: string, isError?: boolean) => void,
   ) => {
     if (!process.env.API_KEY) throw new Error("La variable de entorno API_KEY de Google no está configurada.");
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -853,13 +961,18 @@ Basado en toda esta información, ejecuta tu tarea y proporciona solo el resulta
     }
   
     if (functionCalls.length > 0) {
-      const toolUseText = `------------------\n[🔧 Usando herramienta: ${functionCalls.map(fc => `${fc.name}(${JSON.stringify(fc.args)})`).join(', ')}...]\n----------------------`;
+      let chartDataResult: ChartData | null = null;
       
       const toolResults = await Promise.all(
         functionCalls.map(async (fc) => {
           const tool = Object.values(toolRegistry).find(t => t.declaration.name === fc.name);
           if (tool && tool.execute) {
             const result = await tool.execute(fc.args);
+            if (result && result.isChartData) {
+              const { isChartData, ...theChartData } = result;
+              chartDataResult = theChartData as ChartData;
+              return { functionResponse: { name: fc.name, response: { result: { status: "OK, chart data processed." } } } };
+            }
             return { functionResponse: { name: fc.name, response: { result } } };
           }
           return { functionResponse: { name: fc.name, response: { error: 'Herramienta no encontrada o no ejecutable' } } };
@@ -888,10 +1001,21 @@ Basado en toda esta información, ejecuta tu tarea y proporciona solo el resulta
         const text = chunk.text;
         if(text) {
           finalResponseText += text;
-          const combinedText = `${toolUseText}\n\n${finalResponseText}`;
-          updateFn(combinedText, firstChunk, finalMessageId);
+          updateFn(finalResponseText, firstChunk, finalMessageId);
           if (firstChunk) firstChunk = false;
         }
+      }
+      
+      if (chartDataResult) {
+        setChatHistories(prev => {
+          const currentHistory = prev[activeId || ''] || [];
+          return {
+            ...prev,
+            [activeId || '']: currentHistory.map(m =>
+              m.id === finalMessageId ? { ...m, chartData: chartDataResult as ChartData } : m
+            )
+          };
+        });
       }
     }
   };
@@ -1117,12 +1241,15 @@ Basado en toda esta información, ejecuta tu tarea y proporciona solo el resulta
                         style={{ '--tw-prose-body': 'var(--text-secondary)', '--tw-prose-code': 'var(--user-label-color)', '--tw-prose-strong': 'var(--text-primary)', '--tw-prose-headings': 'var(--text-primary)', color: msg.isError ? 'var(--error-label-color)' : 'inherit' } as React.CSSProperties}
                         dangerouslySetInnerHTML={{ __html: window.DOMPurify.sanitize(window.marked.parse(msg.text)) }} 
                      />
+                     {msg.chartData && <ChartComponent chartData={msg.chartData} theme={theme} />}
                   </div>
               )}
               {msg.role === 'system' && (
                 <div>
                    <p style={{ color: 'var(--system-label-color)'}} className="font-bold">Orquestador</p>
-                   <p className="flex-1 whitespace-pre-wrap mt-1 text-sm opacity-80" style={{color: 'var(--text-secondary)'}}>{msg.text}</p>
+                   <div className="system-message-content">
+                    <p className="flex-1 whitespace-pre-wrap mt-1 text-sm" style={{color: 'var(--text-secondary)'}}>{msg.text}</p>
+                   </div>
                 </div>
               )}
             </div>

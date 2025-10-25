@@ -10,6 +10,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --bg-primary: #000000;
@@ -24,6 +25,7 @@
       --gemini-label-color: #f1fa8c;
       --error-label-color: #ff5555;
       --system-label-color: #50fa7b;
+      --system-label-color-rgb: 80, 250, 123;
     }
 
     body.light-theme {
@@ -39,6 +41,7 @@
       --gemini-label-color: #e69138;
       --error-label-color: #d93025;
       --system-label-color: #00c853;
+      --system-label-color-rgb: 0, 200, 83;
     }
 
     body {
@@ -233,6 +236,26 @@
         color: var(--accent-primary);
         background-color: var(--border-color);
     }
+    .system-message-content {
+      background-color: rgba(var(--system-label-color-rgb), 0.1);
+      border-left: 3px solid var(--system-label-color);
+      padding: 0.5rem 1rem;
+      font-style: italic;
+    }
+    
+    /* Drag and Drop Styles */
+    .draggable-item {
+      cursor: grab;
+    }
+    .dragging {
+      opacity: 0.5;
+      background-color: var(--accent-primary) !important;
+    }
+    .drop-indicator {
+      height: 2px;
+      background-color: var(--accent-primary);
+      margin: 2px 0;
+    }
 
     /* Modal Styles */
     .modal-overlay {
@@ -343,6 +366,16 @@
     }
     input:checked + .slider:before {
       transform: translateX(20px);
+    }
+    /* Chart Styles */
+    .chart-container {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        margin-top: 1rem;
+        background-color: var(--bg-secondary);
+        padding: 1rem;
+        border: 1px solid var(--border-color);
     }
   </style>
 <script type="importmap">
