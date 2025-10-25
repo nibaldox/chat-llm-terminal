@@ -10,4 +10,9 @@ export interface ChatMessage {
 export interface Agent {
   id: string;
   name: string;
+  instructions: string;
+  biography?: string;
+  tools?: string[];
+  expectedOutput?: string;
+  styleGuide?: string; // Nuevo campo para guía de estilo
 }

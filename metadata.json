@@ -1,5 +1,5 @@
 {
-  "name": "Terminal Gemini",
+  "name": "Terminal Gemini LLM",
   "description": "Una interfaz de línea de comandos para chatear con Gemini.",
   "requestFramePermissions": []
 }
