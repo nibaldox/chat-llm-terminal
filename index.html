@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terminal Gemini</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #282a36;
+      --bg-secondary: #21222C;
+      --border-color: #44475a;
+      --text-primary: #f8f8f2;
+      --text-secondary: #d1d5db;
+      --text-placeholder: #6272a4;
+      --accent-primary: #bd93f9;
+      --accent-secondary: #6272a4;
+      --user-label-color: #8be9fd;
+      --gemini-label-color: #f1fa8c;
+      --error-label-color: #ff5555;
+    }
+
+    body.light-theme {
+      --bg-primary: #f8f8f2;
+      --bg-secondary: #eef0f2;
+      --border-color: #d1d5db;
+      --text-primary: #282a36;
+      --text-secondary: #44475a;
+      --text-placeholder: #9ca3af;
+      --accent-primary: #673ab7;
+      --accent-secondary: #44475a;
+      --user-label-color: #2196f3;
+      --gemini-label-color: #e69138;
+      --error-label-color: #d93025;
+    }
+
+    body {
+      font-family: 'Fira Code', monospace;
+      background-color: var(--bg-primary);
+      color: var(--text-secondary);
+      overflow: hidden;
+    }
+    #root {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 0px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-secondary);
+    }
+    .prose code::before, .prose code::after {
+        content: none;
+    }
+    .prose pre {
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 0;
+        padding: 1rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        overflow-x: auto;
+    }
+    .prose code {
+        background-color: var(--border-color);
+        padding: 0.2em 0.4em;
+        margin: 0;
+        font-size: 85%;
+        border-radius: 3px;
+    }
+    .prose pre code {
+        background-color: transparent;
+        padding: 0;
+        margin: 0;
+        font-size: inherit;
+        border-radius: 0;
+    }
+    .prose table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid var(--border-color);
+    }
+    .prose th, .prose td {
+        border: 1px solid var(--border-color);
+        padding: 0.5rem 1rem;
+    }
+    .prose th {
+        background-color: var(--bg-secondary);
+    }
+    .prose blockquote {
+        border-left-color: var(--gemini-label-color);
+        background-color: var(--bg-secondary);
+        padding: 0.5rem 1rem;
+        margin-left: 0;
+        margin-right: 0;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+    .blinking-cursor {
+      animation: blink 1s step-end infinite;
+    }
+
+    /* Main Layout */
+    .sidebar {
+        width: 240px;
+        background-color: var(--bg-secondary);
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        padding: 1rem;
+        flex-shrink: 0;
+    }
+    .main-content-wrapper {
+        flex-grow: 1;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+    .sidebar-header {
+        font-weight: bold;
+        font-size: 1.25rem;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+    }
+    .agent-list {
+        flex-grow: 1;
+        overflow-y: auto;
+        margin-right: -1rem; /* Hide scrollbar visually */
+        padding-right: 1rem;
+    }
+    .agent-item {
+        padding: 0.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-bottom: 0.25rem;
+        color: var(--text-secondary);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        word-break: break-all;
+    }
+    .agent-item:hover {
+        background-color: var(--border-color);
+        color: var(--text-primary);
+    }
+    .agent-item.active {
+        background-color: var(--accent-primary);
+        color: var(--bg-primary);
+        font-weight: bold;
+    }
+    body.light-theme .agent-item.active {
+        color: var(--text-primary);
+    }
+    .agent-item .delete-icon {
+        visibility: hidden;
+        opacity: 0.5;
+        flex-shrink: 0;
+    }
+    .agent-item:hover .delete-icon {
+        visibility: visible;
+    }
+    .agent-item .delete-icon:hover {
+        opacity: 1;
+    }
+    .new-agent-btn {
+        padding: 0.5rem;
+        border: 1px dashed var(--border-color);
+        color: var(--accent-secondary);
+        cursor: pointer;
+        text-align: center;
+        margin-top: 1rem;
+        transition: all 0.2s ease;
+    }
+    .new-agent-btn:hover {
+        border-color: var(--accent-primary);
+        color: var(--accent-primary);
+        background-color: var(--border-color);
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 50;
+    }
+    .modal-content {
+      background-color: var(--bg-primary);
+      padding: 2rem;
+      border: 1px solid var(--border-color);
+      min-width: 400px;
+      color: var(--text-primary);
+    }
+    .modal-input, .modal-select {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem;
+      width: 100%;
+      color: var(--text-primary);
+    }
+    .modal-input:focus, .modal-select:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+    }
+    .modal-select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      color: var(--accent-secondary);
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.5em 1.5em;
+      padding-right: 2.5rem;
+    }
+     .modal-select { color: var(--text-primary); }
+    
+    .modal-button {
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      background-color: var(--border-color);
+      color: var(--text-primary);
+    }
+    .modal-button:hover {
+      background-color: var(--accent-secondary);
+    }
+    .settings-icon {
+      fill: var(--accent-secondary);
+      cursor: pointer;
+    }
+    .settings-icon:hover {
+      fill: var(--accent-primary);
+    }
+    .themed-placeholder::placeholder {
+      color: var(--text-placeholder);
+      opacity: 1;
+    }
+    /* Theme Switcher Styles */
+    .theme-switch-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .theme-switch {
+      display: inline-block;
+      height: 24px;
+      position: relative;
+      width: 44px;
+    }
+    .theme-switch input {
+      display:none;
+    }
+    .slider {
+      background-color: var(--border-color);
+      bottom: 0;
+      cursor: pointer;
+      left: 0;
+      position: absolute;
+      right: 0;
+      top: 0;
+      transition: .4s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      background-color: var(--bg-primary);
+      bottom: 4px;
+      content: "";
+      height: 16px;
+      left: 4px;
+      position: absolute;
+      transition: .4s;
+      width: 16px;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--accent-primary);
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
