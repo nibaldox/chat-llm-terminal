@@ -246,6 +246,7 @@ const TeamModal: React.FC<TeamModalProps> = ({ isOpen, onClose, onSave, teamToEd
     members: [],
   });
   const [selectedAgent, setSelectedAgent] = useState<string>('');
+  const [isImprovingObjective, setIsImprovingObjective] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -268,6 +269,35 @@ const TeamModal: React.FC<TeamModalProps> = ({ isOpen, onClose, onSave, teamToEd
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleImproveObjective = async () => {
+    if (!formData.objective.trim()) {
+      alert("Por favor, escribe un objetivo para el equipo primero.");
+      return;
+    }
+    setIsImprovingObjective(true);
+    try {
+      if (!process.env.API_KEY) throw new Error("La clave API de Google no está configurada.");
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const metaPrompt = `Eres un experto en la orquestación de equipos de agentes de IA. Refina el siguiente objetivo de equipo para que sea más claro, accionable y efectivo para guiar a un agente "manager" o "orquestador". El objetivo debe definir claramente el resultado final esperado. Devuelve únicamente el objetivo mejorado, sin preámbulos.
+
+Objetivo a mejorar:
+"${formData.objective}"`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: metaPrompt,
+      });
+      const improvedText = response.text.trim();
+      setFormData(prev => ({...prev, objective: improvedText}));
+    } catch (e: any) {
+      console.error("Error al mejorar el objetivo:", e);
+      alert(`No se pudo mejorar el objetivo: ${e.message}`);
+    } finally {
+      setIsImprovingObjective(false);
+    }
+  };
+
 
   const handleAddMember = () => {
     if (selectedAgent && !formData.members.some(m => m.agentId === selectedAgent)) {
@@ -307,7 +337,22 @@ const TeamModal: React.FC<TeamModalProps> = ({ isOpen, onClose, onSave, teamToEd
             <input name="name" value={formData.name} onChange={handleChange} className="modal-input" required />
           </div>
           <div>
-            <label className="block mb-1">Objetivo del Equipo (Obligatorio)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block">Objetivo del Equipo (Obligatorio)</label>
+               <button type="button" onClick={handleImproveObjective} disabled={isImprovingObjective} className="text-xs flex items-center gap-1 text-[--accent-secondary] hover:text-[--accent-primary] disabled:opacity-50 disabled:cursor-wait">
+                {isImprovingObjective ? (
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M13.488.354a1.5 1.5 0 0 1 2.122 2.122l-6.88 6.88a1.5 1.5 0 0 1-2.12 0l-.879-.878a1.5 1.5 0 0 1 0-2.122l6.758-6.758ZM3.146 9.854a.5.5 0 1 0-.708.708l1.06 1.06a.5.5 0 0 0 .708 0l1.06-1.06a.5.5 0 0 0-.708-.708L4.5 10.293zM5.5 7.5a.5.5 0 1 0-1 0v1a.5.5 0 0 0 1 0zM.5 5.5a.5.5 0 1 0 0-1H1a.5.5 0 0 0 0 1zM3 1.5a.5.5 0 1 0-1 0v1a.5.5 0 0 0 1 0zM.5 3.5a.5.5 0 1 0 0-1H1a.5.5 0 0 0 0 1zM2.44 6.11a.5.5 0 1 0-.707-.707L.384 6.75a.5.5 0 0 0 .707.707zM6.11 2.44a.5.5 0 1 0-.707.707L6.75.384a.5.5 0 0 0-.707-.707z" />
+                    </svg>
+                  )}
+                Mejorar con IA
+              </button>
+            </div>
             <textarea name="objective" value={formData.objective} onChange={handleChange} className="modal-input" required rows={3}></textarea>
           </div>
           <div>
