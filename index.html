@@ -12,9 +12,9 @@
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
   <style>
     :root {
-      --bg-primary: #282a36;
-      --bg-secondary: #21222C;
-      --border-color: #44475a;
+      --bg-primary: #000000;
+      --bg-secondary: #1a1a1a;
+      --border-color: #333333;
       --text-primary: #f8f8f2;
       --text-secondary: #d1d5db;
       --text-placeholder: #6272a4;
@@ -23,6 +23,7 @@
       --user-label-color: #8be9fd;
       --gemini-label-color: #f1fa8c;
       --error-label-color: #ff5555;
+      --system-label-color: #50fa7b;
     }
 
     body.light-theme {
@@ -37,6 +38,7 @@
       --user-label-color: #2196f3;
       --gemini-label-color: #e69138;
       --error-label-color: #d93025;
+      --system-label-color: #00c853;
     }
 
     body {
@@ -49,6 +51,7 @@
       display: flex;
       height: 100vh;
       width: 100vw;
+      position: relative;
     }
     ::-webkit-scrollbar {
       width: 8px;
@@ -124,6 +127,19 @@
         flex-direction: column;
         padding: 1rem;
         flex-shrink: 0;
+        transition: all 0.3s ease-in-out;
+    }
+    .sidebar.hidden {
+      width: 0;
+      padding: 1rem 0;
+      overflow: hidden;
+      border-right: none;
+    }
+    .sidebar-content {
+      min-width: 208px; /* 240px - 2rem padding */
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
     .main-content-wrapper {
         flex-grow: 1;
@@ -131,19 +147,45 @@
         display: flex;
         flex-direction: column;
     }
+    .sidebar-toggle-btn {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      z-index: 51;
+      width: 36px;
+      height: 36px;
+      background-color: transparent;
+      color: var(--text-secondary);
+      border: none;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0.6;
+      transition: all 0.3s ease-in-out;
+    }
+    #root.sidebar-open .sidebar-toggle-btn {
+      left: calc(240px - 36px - 0.5rem);
+    }
+
+    .sidebar-toggle-btn:hover {
+      opacity: 1;
+      background-color: var(--border-color);
+    }
     .sidebar-header {
         font-weight: bold;
         font-size: 1.25rem;
         color: var(--text-primary);
         margin-bottom: 1rem;
     }
-    .agent-list {
+    .sidebar-section {
         flex-grow: 1;
         overflow-y: auto;
         margin-right: -1rem; /* Hide scrollbar visually */
         padding-right: 1rem;
     }
-    .agent-item {
+    .sidebar-item {
         padding: 0.5rem;
         border-radius: 4px;
         cursor: pointer;
@@ -154,30 +196,30 @@
         align-items: center;
         word-break: break-all;
     }
-    .agent-item:hover {
+    .sidebar-item:hover {
         background-color: var(--border-color);
         color: var(--text-primary);
     }
-    .agent-item.active {
+    .sidebar-item.active {
         background-color: var(--accent-primary);
         color: var(--bg-primary);
         font-weight: bold;
     }
-    body.light-theme .agent-item.active {
+    body.light-theme .sidebar-item.active {
         color: var(--text-primary);
     }
-    .agent-item .delete-icon {
+    .sidebar-item .action-icon {
         visibility: hidden;
         opacity: 0.5;
         flex-shrink: 0;
     }
-    .agent-item:hover .delete-icon {
+    .sidebar-item:hover .action-icon {
         visibility: visible;
     }
-    .agent-item .delete-icon:hover {
+    .sidebar-item .action-icon:hover {
         opacity: 1;
     }
-    .new-agent-btn {
+    .new-item-btn {
         padding: 0.5rem;
         border: 1px dashed var(--border-color);
         color: var(--accent-secondary);
@@ -186,7 +228,7 @@
         margin-top: 1rem;
         transition: all 0.2s ease;
     }
-    .new-agent-btn:hover {
+    .new-item-btn:hover {
         border-color: var(--accent-primary);
         color: var(--accent-primary);
         background-color: var(--border-color);
@@ -211,6 +253,8 @@
       border: 1px solid var(--border-color);
       min-width: 400px;
       color: var(--text-primary);
+      max-height: 90vh;
+      overflow-y: auto;
     }
     .modal-input, .modal-select {
       background-color: var(--bg-secondary);

@@ -1,4 +1,4 @@
-export type Role = 'user' | 'model';
+export type Role = 'user' | 'model' | 'system';
 
 export interface ChatMessage {
   id: string;
@@ -14,5 +14,16 @@ export interface Agent {
   biography?: string;
   tools?: string[];
   expectedOutput?: string;
-  styleGuide?: string; // Nuevo campo para guía de estilo
+  styleGuide?: string;
+}
+
+export interface TeamMember {
+  agentId: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  objective: string;
+  members: TeamMember[];
 }
